@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,  // .env.local에서 불러옴
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -21,10 +21,25 @@ export default async function handler(req, res) {
       }),
     });
 
-    const data = await response.json();
-    const reply = data.content?.map(b => b.text || "").join("") || "응답 오류";
+    const text = await response.text();
+    console.log("Anthropic raw response:", text);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return res.status(500).json({ reply: "JSON 파싱 오류: " + text.slice(0, 200) });
+    }
+
+    if (data.error) {
+      return res.status(500).json({ reply: "API 오류: " + data.error.message });
+    }
+
+    const reply = data.content?.map(b => b.text || "").join("") || "응답 없음";
     res.status(200).json({ reply });
+
   } catch (err) {
+    console.error("Handler error:", err);
     res.status(500).json({ reply: "서버 오류: " + err.message });
   }
 }
